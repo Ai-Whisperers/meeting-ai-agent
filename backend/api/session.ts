@@ -15,8 +15,8 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Validate API key is configured
-  const apiKey = process.env.OPENAI_API_KEY;
+  // Validate API key is configured (always use repository secret, fallback to user-provided)
+  const apiKey = process.env.OPENAI_API_KEY || req.body?.apiKey || req.headers['x-api-key'] as string;
   if (!apiKey) {
     console.error('OPENAI_API_KEY not configured');
     return res.status(500).json({ error: 'Server configuration error' });
