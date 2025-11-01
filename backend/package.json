@@ -1,0 +1,19 @@
+{
+  "name": "meetings-agent-backend",
+  "version": "1.0.0",
+  "description": "Backend service for generating ephemeral tokens for OpenAI Realtime API",
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel deploy"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@vercel/node": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
