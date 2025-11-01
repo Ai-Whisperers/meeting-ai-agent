@@ -15,6 +15,7 @@ A browser-based application that provides strategic B2B insights during meetings
 - **Audio Capture**: Captures both system audio (other participants) and microphone (you)
 - **Meeting History**: Stores meetings locally in browser with export capabilities
 - **Clean Interface**: Split-panel dashboard with transcript and insights side-by-side
+- **Flexible API Keys**: Supports repository secrets, request body, or header-based API keys
 
 ## Architecture
 
@@ -190,9 +191,11 @@ meetings-agent/
 
 ## Configuration
 
-### Backend Environment Variables
+### Backend API Key Options (Priority Order)
 
-- `OPENAI_API_KEY`: Your OpenAI API key (required)
+1. **Repository Secret**: `OPENAI_API_KEY` environment variable (recommended)
+2. **Request Body**: `{ "apiKey": "sk-..." }` in POST body
+3. **Request Header**: `X-Api-Key: sk-...` header
 
 ### Frontend Environment Variables
 
