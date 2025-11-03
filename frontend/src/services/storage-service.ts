@@ -1,17 +1,24 @@
 /**
  * Storage Service
  * Handles localStorage operations for meeting sessions
+ * Now integrates with sync service for automatic SQLite persistence
  */
 
 import type { MeetingSession } from '../types';
+import { getSyncService } from './sync-service';
 
 const STORAGE_KEY = 'meetings_agent_sessions';
 const MAX_SESSIONS = 50; // Limit stored sessions to prevent localStorage overflow
+const STORAGE_KEY_PREFIX = 'meetings-agent';
 
 export class StorageService {
   private static instance: StorageService;
+  private syncService = getSyncService();
 
-  private constructor() {}
+  private constructor() {
+    // Start auto-sync on initialization
+    this.syncService.startAutoSync();
+  }
 
   static getInstance(): StorageService {
     if (!StorageService.instance) {
@@ -69,7 +76,14 @@ export class StorageService {
       }
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+
+      // Also save in detailed format for sync service
+      this.saveSessionDetailed(session);
+
       console.log('Session saved to localStorage:', session.id);
+
+      // Mark for sync
+      this.syncService.markPendingSync();
     } catch (error) {
       console.error('Failed to save session to localStorage:', error);
       // Try to free up space if quota exceeded
@@ -81,6 +95,34 @@ export class StorageService {
   }
 
   /**
+   * Save session in detailed format for sync service
+   */
+  private saveSessionDetailed(session: MeetingSession): void {
+    try {
+      // Save meeting metadata
+      const meetingKey = `${STORAGE_KEY_PREFIX}-meeting-${session.id}`;
+      localStorage.setItem(meetingKey, JSON.stringify({
+        id: session.id,
+        title: session.title || 'Untitled Meeting',
+        startTime: session.startTime,
+        endTime: session.endTime,
+        duration: session.duration,
+        status: session.status || 'completed'
+      }));
+
+      // Save transcripts separately
+      const transcriptsKey = `${STORAGE_KEY_PREFIX}-transcripts-${session.id}`;
+      localStorage.setItem(transcriptsKey, JSON.stringify(session.transcript));
+
+      // Save insights separately
+      const insightsKey = `${STORAGE_KEY_PREFIX}-insights-${session.id}`;
+      localStorage.setItem(insightsKey, JSON.stringify(session.insights));
+    } catch (error) {
+      console.error('Failed to save detailed session data:', error);
+    }
+  }
+
+  /**
    * Delete a session by ID
    */
   deleteSession(id: string): void {
@@ -88,6 +130,12 @@ export class StorageService {
       const sessions = this.getAllSessions();
       const filtered = sessions.filter(session => session.id !== id);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+
+      // Delete detailed session data
+      localStorage.removeItem(`${STORAGE_KEY_PREFIX}-meeting-${id}`);
+      localStorage.removeItem(`${STORAGE_KEY_PREFIX}-transcripts-${id}`);
+      localStorage.removeItem(`${STORAGE_KEY_PREFIX}-insights-${id}`);
+
       console.log('Session deleted:', id);
     } catch (error) {
       console.error('Failed to delete session:', error);
@@ -113,11 +161,40 @@ export class StorageService {
    */
   clearAllSessions(): void {
     try {
+      // Get all sessions first to clean up detailed data
+      const sessions = this.getAllSessions();
+      sessions.forEach(session => {
+        localStorage.removeItem(`${STORAGE_KEY_PREFIX}-meeting-${session.id}`);
+        localStorage.removeItem(`${STORAGE_KEY_PREFIX}-transcripts-${session.id}`);
+        localStorage.removeItem(`${STORAGE_KEY_PREFIX}-insights-${session.id}`);
+      });
+
       localStorage.removeItem(STORAGE_KEY);
       console.log('All sessions cleared');
     } catch (error) {
       console.error('Failed to clear all sessions:', error);
     }
+  }
+
+  /**
+   * Manually trigger sync to backend
+   */
+  async syncToBackend(): Promise<boolean> {
+    return this.syncService.syncNow();
+  }
+
+  /**
+   * Get sync status
+   */
+  getSyncStatus() {
+    return this.syncService.getStatus();
+  }
+
+  /**
+   * Subscribe to sync status changes
+   */
+  onSyncStatusChange(callback: (status: any) => void): () => void {
+    return this.syncService.onStatusChange(callback);
   }
 
   /**

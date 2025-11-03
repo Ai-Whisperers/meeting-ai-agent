@@ -25,11 +25,15 @@ export interface MeetingSession {
   startTime: number;
   endTime?: number;
   duration?: number;
+  status?: 'active' | 'completed' | 'archived';
   transcript: TranscriptEntry[];
   insights: Insight[];
   participants?: string[];
   notes?: string;
 }
+
+// Alias for backend compatibility
+export type Meeting = MeetingSession;
 
 export interface SessionToken {
   ephemeralToken: string;

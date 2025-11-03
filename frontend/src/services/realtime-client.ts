@@ -3,7 +3,7 @@
  * Handles WebRTC connection and event streaming with OpenAI Realtime API
  */
 
-import { RealtimeClient } from '@openai/realtime-api-beta';
+import { RealtimeClient } from '../lib/openai-realtime';
 import type { Insight, TranscriptEntry } from '../types';
 
 export interface RealtimeConfig {
