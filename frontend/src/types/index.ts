@@ -2,7 +2,14 @@
  * Type definitions for the Meetings Agent application
  */
 
-export type InsightType = 'opportunity' | 'caution' | 'risk' | 'next-step';
+// Desktop mode: B2B Strategic insights
+export type DesktopInsightType = 'opportunity' | 'caution' | 'risk' | 'next-step';
+
+// Mobile mode: Operational insights
+export type MobileInsightType = 'technique' | 'advice' | 'action-item' | 'key-insight';
+
+// Combined type for all insight types
+export type InsightType = DesktopInsightType | MobileInsightType;
 
 export interface Insight {
   id: string;

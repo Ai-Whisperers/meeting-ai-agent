@@ -26,10 +26,14 @@ CREATE TABLE IF NOT EXISTS transcripts (
 );
 
 -- Insights table
+-- Supports both desktop mode (B2B strategic) and mobile mode (operational) insights
 CREATE TABLE IF NOT EXISTS insights (
     id TEXT PRIMARY KEY,
     meeting_id TEXT NOT NULL,
-    type TEXT NOT NULL CHECK(type IN ('opportunity', 'caution', 'risk', 'next-step')),
+    type TEXT NOT NULL CHECK(type IN (
+        'opportunity', 'caution', 'risk', 'next-step',           -- Desktop mode: B2B Strategic
+        'technique', 'advice', 'action-item', 'key-insight'      -- Mobile mode: Operational
+    )),
     content TEXT NOT NULL,
     timestamp INTEGER NOT NULL,
     is_read BOOLEAN DEFAULT 0,
@@ -63,10 +67,16 @@ SELECT
     m.duration,
     COUNT(DISTINCT t.id) as transcript_count,
     COUNT(DISTINCT i.id) as insight_count,
+    -- Desktop mode (B2B Strategic) insights
     SUM(CASE WHEN i.type = 'opportunity' THEN 1 ELSE 0 END) as opportunities,
     SUM(CASE WHEN i.type = 'caution' THEN 1 ELSE 0 END) as cautions,
     SUM(CASE WHEN i.type = 'risk' THEN 1 ELSE 0 END) as risks,
-    SUM(CASE WHEN i.type = 'next-step' THEN 1 ELSE 0 END) as next_steps
+    SUM(CASE WHEN i.type = 'next-step' THEN 1 ELSE 0 END) as next_steps,
+    -- Mobile mode (Operational) insights
+    SUM(CASE WHEN i.type = 'technique' THEN 1 ELSE 0 END) as techniques,
+    SUM(CASE WHEN i.type = 'advice' THEN 1 ELSE 0 END) as advice_items,
+    SUM(CASE WHEN i.type = 'action-item' THEN 1 ELSE 0 END) as action_items,
+    SUM(CASE WHEN i.type = 'key-insight' THEN 1 ELSE 0 END) as key_insights
 FROM meetings m
 LEFT JOIN transcripts t ON m.id = t.meeting_id
 LEFT JOIN insights i ON m.id = i.meeting_id

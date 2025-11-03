@@ -1,0 +1,15 @@
+> so currently, what is actually being saved in persistance? both the ai
+analysis and the audio transcriptions? or just the audio transcriptions or
+just the ai-analysis?
+
+● Both are saved - the system persists audio transcriptions (what was said
+  by each speaker) in the transcripts table AND AI analysis (strategic
+  insights categorized as opportunities, cautions, risks, next-steps) in the
+   insights table, along with meeting metadata.
+
+
+> on a single line, isnt now overkill to have localStorage saving?
+
+● No - localStorage provides instant read/write during active meetings
+  (0-latency) and offline capability, while SQLite ensures durability; it's
+  a deliberate performance/offline-first caching strategy, not overkill.

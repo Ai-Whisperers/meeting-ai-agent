@@ -5,6 +5,7 @@
 
 import { RealtimeClient } from '../lib/openai-realtime';
 import type { Insight, TranscriptEntry } from '../types';
+import { isMobileDevice, logDeviceInfo } from '../utils/device-detection';
 
 export interface RealtimeConfig {
   ephemeralToken: string;
@@ -19,6 +20,7 @@ export interface RealtimeEventHandlers {
   onDisconnected: () => void;
 }
 
+// Desktop Mode: Real-time B2B Strategic Advisor
 const B2B_STRATEGIST_PROMPT = `You are an expert B2B relationship strategist and meeting advisor. Your role is to provide real-time strategic insights during business meetings.
 
 As you listen to the conversation, analyze it and provide insights in the following categories:
@@ -53,13 +55,59 @@ As you listen to the conversation, analyze it and provide insights in the follow
 
 Format your insights clearly and concisely. Be strategic, actionable, and timely. Focus on helping the speaker navigate the conversation successfully and build strong B2B relationships.`;
 
+// Mobile Mode: Operational Meeting Recorder with Post-Meeting Analysis
+const OPERATIONAL_RECORDER_PROMPT = `You are an expert meeting transcriber and operational analyst. Your role is to accurately transcribe conversations and provide operational insights AFTER the meeting concludes.
+
+PRIMARY OBJECTIVE: Provide accurate, real-time transcription of all spoken content.
+
+SECONDARY OBJECTIVE: After processing the full conversation, synthesize operational insights in the following categories:
+
+**TECHNIQUES MENTIONED**: Document any methodologies, frameworks, or techniques discussed:
+- Business methodologies (Agile, Lean, Six Sigma, etc.)
+- Technical approaches and best practices
+- Communication or negotiation techniques
+- Problem-solving methods
+- Tools or software mentioned
+
+**ADVICE GIVEN**: Summarize key recommendations and guidance shared:
+- Expert opinions offered
+- Suggested solutions to problems
+- Best practices recommended
+- Warnings or cautionary advice
+- Decision-making guidance
+
+**ACTION ITEMS**: Extract concrete next steps and recommendations:
+- Tasks to be completed
+- Follow-up actions required
+- Deadlines mentioned
+- Assignments or responsibilities
+- Resources to gather or review
+
+**KEY INSIGHTS**: Distill the most important takeaways:
+- Main conclusions reached
+- Critical decisions made
+- Important patterns or trends identified
+- Lessons learned
+- Knowledge gaps identified
+
+Focus on providing accurate transcriptions in real-time. Generate operational insights based on patterns observed throughout the entire conversation. Be precise, factual, and objective.`;
+
 export class RealtimeClientWrapper {
   private client: RealtimeClient;
   private handlers: RealtimeEventHandlers;
   private isConnected: boolean = false;
+  private isMobile: boolean = false;
 
   constructor(config: RealtimeConfig, handlers: RealtimeEventHandlers) {
     this.handlers = handlers;
+
+    // Detect device type
+    this.isMobile = isMobileDevice();
+
+    // Log device info for debugging
+    logDeviceInfo();
+    console.log(`📱 Mode: ${this.isMobile ? 'MOBILE (Operational Recorder)' : 'DESKTOP (B2B Strategist)'}`);
+
     this.client = new RealtimeClient({
       apiKey: config.ephemeralToken,
       dangerouslyAllowAPIKeyInBrowser: true // Using ephemeral token, so this is safe
@@ -136,19 +184,37 @@ export class RealtimeClientWrapper {
     for (const line of lines) {
       const trimmed = line.trim();
 
-      // Detect insight type headers
-      if (trimmed.match(/\*\*OPPORTUNIT(Y|IES)\*\*/i)) {
-        currentType = 'opportunity';
-        continue;
-      } else if (trimmed.match(/\*\*CAUTION(S)?\*\*/i)) {
-        currentType = 'caution';
-        continue;
-      } else if (trimmed.match(/\*\*RISK(S)?\*\*/i)) {
-        currentType = 'risk';
-        continue;
-      } else if (trimmed.match(/\*\*NEXT STEP(S)?\*\*/i)) {
-        currentType = 'next-step';
-        continue;
+      // Detect insight type headers based on mode
+      if (this.isMobile) {
+        // Mobile mode: Operational insights
+        if (trimmed.match(/\*\*TECHNIQUES?\s+MENTIONED\*\*/i)) {
+          currentType = 'technique';
+          continue;
+        } else if (trimmed.match(/\*\*ADVICE\s+GIVEN\*\*/i)) {
+          currentType = 'advice';
+          continue;
+        } else if (trimmed.match(/\*\*ACTION\s+ITEMS?\*\*/i)) {
+          currentType = 'action-item';
+          continue;
+        } else if (trimmed.match(/\*\*KEY\s+INSIGHTS?\*\*/i)) {
+          currentType = 'key-insight';
+          continue;
+        }
+      } else {
+        // Desktop mode: B2B Strategic insights
+        if (trimmed.match(/\*\*OPPORTUNIT(Y|IES)\*\*/i)) {
+          currentType = 'opportunity';
+          continue;
+        } else if (trimmed.match(/\*\*CAUTION(S)?\*\*/i)) {
+          currentType = 'caution';
+          continue;
+        } else if (trimmed.match(/\*\*RISK(S)?\*\*/i)) {
+          currentType = 'risk';
+          continue;
+        } else if (trimmed.match(/\*\*NEXT STEP(S)?\*\*/i)) {
+          currentType = 'next-step';
+          continue;
+        }
       }
 
       // Extract insight content (lines starting with - or •)
@@ -169,9 +235,16 @@ export class RealtimeClientWrapper {
 
   async connect(audioStream: MediaStream): Promise<void> {
     try {
-      // Update session with B2B strategist instructions
+      // Select prompt based on device type
+      const instructions = this.isMobile
+        ? OPERATIONAL_RECORDER_PROMPT
+        : B2B_STRATEGIST_PROMPT;
+
+      console.log(`🎯 Using prompt: ${this.isMobile ? 'Operational Recorder' : 'B2B Strategist'}`);
+
+      // Update session with appropriate instructions
       await this.client.updateSession({
-        instructions: B2B_STRATEGIST_PROMPT,
+        instructions,
         voice: 'verse',
         input_audio_transcription: {
           model: 'whisper-1'
